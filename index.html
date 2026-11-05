@@ -1,1 +1,450 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zombie Escape</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: #101b18;
+  color: white;
+  font-family: Arial, sans-serif;
+  overflow: hidden;
+}
+#game {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  background: #294b38;
+}
+#hud {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  background: #101c19dd;
+  padding: 12px 18px;
+  border: 2px solid #739b67;
+  border-radius: 12px;
+  line-height: 1.8;
+  display: none;
+}
+#healthBar {
+  width: 170px;
+  height: 13px;
+  background: #4b2424;
+  border-radius: 10px;
+  overflow: hidden;
+}
+#healthFill {
+  height: 100%;
+  width: 100%;
+  background: #39dc67;
+  transition: width .2s;
+}
+#overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #07100edc;
+  text-align: center;
+}
+.panel {
+  background: linear-gradient(145deg,#203d30,#10251e);
+  border: 3px solid #8bb66d;
+  border-radius: 20px;
+  padding: 30px;
+  width: min(430px,92vw);
+  box-shadow: 0 0 35px #000;
+}
+h1 { color: #a8e77b; font-size: 38px; margin: 5px; }
+input, select, button {
+  width: 100%;
+  padding: 13px;
+  margin-top: 12px;
+  border-radius: 9px;
+  border: 1px solid #829b77;
+  font-size: 16px;
+}
+button {
+  background: #8bc34a;
+  color: #142414;
+  font-weight: bold;
+  cursor: pointer;
+}
+button:hover { background: #b0ed68; }
+#instructions { color: #d2e6ce; font-size: 14px; line-height: 1.7; }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <b>🧟 ZOMBIE ESCAPE</b><br>
+  Player: <span id="playerLabel"></span><br>
+  Role: <span id="roleLabel"></span><br>
+  ❤️ Health: <span id="healthText">100</span>
+  <div id="healthBar"><div id="healthFill"></div></div>
+  📦 Supplies: <span id="supplyText">0</span>
+  <br><small>WASD = Move | Collect supplies!</small>
+</div>
+
+<div id="overlay">
+  <div class="panel" id="startPanel">
+    <h1>🧟 ZOMBIE ESCAPE</h1>
+    <p>Survive the zombie outbreak!</p>
+    <input id="nameInput" maxlength="16" placeholder="Enter your player name">
+    <select id="roleInput">
+      <option value="Survivor">Survivor - Balanced stats</option>
+      <option value="Scout">Scout - Faster movement</option>
+      <option value="Medic">Medic - Extra health</option>
+    </select>
+    <button id="startButton">START SURVIVING</button>
+    <p id="instructions">
+      Use W, A, S, D to move.<br>
+      Collect supply crates and avoid zombies.<br>
+      Stay alive as long as possible!
+    </p>
+  </div>
+  <div class="panel" id="deadPanel" style="display:none">
+    <h1>💀 GAME OVER</h1>
+    <p>The zombies caught you!</p>
+    <p id="finalScore"></p>
+    <button id="retryButton">🔄 RETRY</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+const WORLD = {w:1800,h:1300};
+const keys = {};
+let player, zombies, supplies, particles;
+let buildings = [];
+let trees = [];
+let running = false;
+let gameStarted = false;
+let playerName = "Survivor";
+let playerRole = "Survivor";
+let collected = 0;
+let elapsed = 0;
+let lastTime = 0;
+let spawnTimer = 0;
+
+function random(min,max) {
+  return Math.random()*(max-min)+min;
+}
+
+function circleRect(x,y,r,b) {
+  let nx=Math.max(b.x,Math.min(x,b.x+b.w));
+  let ny=Math.max(b.y,Math.min(y,b.y+b.h));
+  return Math.hypot(x-nx,y-ny)<r;
+}
+
+function blocked(x,y,r) {
+  if(x<r || y<r || x>WORLD.w-r || y>WORLD.h-r) return true;
+  return buildings.some(b=>circleRect(x,y,r,b));
+}
+
+function createMap() {
+  buildings=[
+    {x:170,y:150,w:230,h:170,color:"#68716c"},
+    {x:690,y:130,w:260,h:190,color:"#766b5b"},
+    {x:1280,y:150,w:300,h:190,color:"#5e706b"},
+    {x:190,y:650,w:280,h:210,color:"#746b5c"},
+    {x:700,y:680,w:310,h:210,color:"#596b70"},
+    {x:1300,y:670,w:260,h:240,color:"#77705c"},
+    {x:780,y:1080,w:260,h:130,color:"#6e6558"}
+  ];
+  trees=[];
+  for(let i=0;i<100;i++){
+    let x=random(40,WORLD.w-40);
+    let y=random(40,WORLD.h-40);
+    if(!buildings.some(b=>circleRect(x,y,22,b)))
+      trees.push({x,y,r:random(12,23)});
+  }
+}
+
+function makePlayer() {
+  let health=playerRole==="Medic"?130:100;
+  return {
+    x:900,y:500,r:17,
+    health,maxHealth:health,
+    speed:playerRole==="Scout"?245:190,
+    lastHit:0
+  };
+}
+
+function spawnSupply() {
+  for(let i=0;i<150;i++){
+    let x=random(50,WORLD.w-50);
+    let y=random(50,WORLD.h-50);
+    if(!blocked(x,y,15)&&Math.hypot(x-player.x,y-player.y)>100){
+      supplies.push({x,y,r:13,bob:random(0,6)});
+      return;
+    }
+  }
+}
+
+function spawnZombie() {
+  for(let i=0;i<100;i++){
+    let angle=random(0,Math.PI*2);
+    let distance=random(450,650);
+    let x=player.x+Math.cos(angle)*distance;
+    let y=player.y+Math.sin(angle)*distance;
+    if(x>25&&y>25&&x<WORLD.w-25&&y<WORLD.h-25&&!blocked(x,y,16)){
+      zombies.push({x,y,r:16,speed:random(48,75),phase:random(0,6)});
+      return;
+    }
+  }
+}
+
+function startGame() {
+  playerName=document.getElementById("nameInput").value.trim()||"Survivor";
+  playerRole=document.getElementById("roleInput").value;
+  document.getElementById("playerLabel").textContent=playerName;
+  document.getElementById("roleLabel").textContent=playerRole;
+  document.getElementById("overlay").style.display="none";
+  document.getElementById("hud").style.display="block";
+  createMap();
+  player=makePlayer();
+  zombies=[];
+  supplies=[];
+  particles=[];
+  collected=0;
+  elapsed=0;
+  spawnTimer=0;
+  for(let i=0;i<7;i++) spawnZombie();
+  for(let i=0;i<12;i++) spawnSupply();
+  running=true;
+  gameStarted=true;
+  lastTime=performance.now();
+  requestAnimationFrame(loop);
+}
+
+document.getElementById("startButton").onclick=startGame;
+document.getElementById("retryButton").onclick=startGame;
+
+window.addEventListener("keydown",e=>{
+  let k=e.key.toLowerCase();
+  if(["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"].includes(k))
+    e.preventDefault();
+  keys[k]=true;
+});
+window.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+
+function die() {
+  if(!running)return;
+  running=false;
+  document.getElementById("hud").style.display="none";
+  document.getElementById("overlay").style.display="flex";
+  document.getElementById("startPanel").style.display="none";
+  document.getElementById("deadPanel").style.display="block";
+  document.getElementById("finalScore").textContent=
+    "Supplies collected: "+collected+" | Survival time: "+Math.floor(elapsed)+" seconds";
+}
+
+function update(dt) {
+  elapsed+=dt;
+  let dx=0,dy=0;
+  if(keys.w)dy--;
+  if(keys.s)dy++;
+  if(keys.a)dx--;
+  if(keys.d)dx++;
+
+  let len=Math.hypot(dx,dy);
+  if(len){
+    dx=dx/len*player.speed*dt;
+    dy=dy/len*player.speed*dt;
+  }
+
+  if(!blocked(player.x+dx,player.y,player.r))player.x+=dx;
+  if(!blocked(player.x,player.y+dy,player.r))player.y+=dy;
+
+  zombies.forEach(z=>{
+    let vx=player.x-z.x;
+    let vy=player.y-z.y;
+    let d=Math.hypot(vx,vy)||1;
+    let speed=z.speed+Math.min(35,elapsed*.3);
+    let mx=vx/d*speed*dt;
+    let my=vy/d*speed*dt;
+    if(!blocked(z.x+mx,z.y,z.r))z.x+=mx;
+    if(!blocked(z.x,z.y+my,z.r))z.y+=my;
+
+    if(d<player.r+z.r+4 && elapsed-player.lastHit>0.85){
+      player.health-=12;
+      player.lastHit=elapsed;
+      if(player.health<=0){
+        player.health=0;
+        die();
+      }
+    }
+  });
+
+  supplies.forEach((s,i)=>{
+    if(Math.hypot(player.x-s.x,player.y-s.y)<player.r+s.r+4){
+      collected++;
+      supplies.splice(i,1);
+      spawnSupply();
+    }
+  });
+
+  spawnTimer+=dt;
+  if(spawnTimer>12&&zombies.length<25){
+    spawnZombie();
+    spawnTimer=0;
+  }
+
+  document.getElementById("healthText").textContent=Math.ceil(player.health);
+  document.getElementById("healthFill").style.width=
+    (player.health/player.maxHealth*100)+"%";
+  document.getElementById("supplyText").textContent=collected;
+}
+
+function draw() {
+  let camX=Math.max(0,Math.min(WORLD.w-canvas.width,player.x-canvas.width/2));
+  let camY=Math.max(0,Math.min(WORLD.h-canvas.height,player.y-canvas.height/2));
+
+  ctx.fillStyle="#385e40";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.save();
+  ctx.translate(-camX,-camY);
+
+  // Grass and ground details
+  ctx.fillStyle="#416c48";
+  ctx.fillRect(0,0,WORLD.w,WORLD.h);
+  for(let i=0;i<350;i++){
+    let x=(i*137)%WORLD.w;
+    let y=(i*211)%WORLD.h;
+    ctx.fillStyle=i%2?"#4c754d":"#385f40";
+    ctx.fillRect(x,y,5,5);
+  }
+
+  // Roads
+  ctx.fillStyle="#555b55";
+  ctx.fillRect(0,450,WORLD.w,125);
+  ctx.fillRect(500,0,115, WORLD.h);
+  ctx.fillStyle="#c6b77a";
+  for(let x=0;x<WORLD.w;x+=65)ctx.fillRect(x,509,32,5);
+  for(let y=0;y<WORLD.h;y+=65)ctx.fillRect(553,y,5,32);
+
+  // Buildings
+  buildings.forEach(b=>{
+    ctx.fillStyle="#202d27";
+    ctx.fillRect(b.x+9,b.y+12,b.w,b.h);
+    ctx.fillStyle=b.color;
+    ctx.fillRect(b.x,b.y,b.w,b.h);
+    ctx.fillStyle="#424c47";
+    ctx.fillRect(b.x,b.y,b.w,19);
+    ctx.fillStyle="#a9c3b4";
+    for(let x=b.x+25;x<b.x+b.w-15;x+=65){
+      ctx.fillRect(x,b.y+45,30,32);
+    }
+    ctx.fillStyle="#303a35";
+    ctx.fillRect(b.x+b.w/2-22,b.y+b.h-45,44,45);
+  });
+
+  // Trees
+  trees.forEach(t=>{
+    ctx.fillStyle="#61462c";
+    ctx.fillRect(t.x-5,t.y,10,20);
+    ctx.fillStyle="#1b492c";
+    ctx.beginPath();ctx.arc(t.x,t.y,t.r+6,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#337d40";
+    ctx.beginPath();ctx.arc(t.x-5,t.y-5,t.r,0,Math.PI*2);ctx.fill();
+  });
+
+  // Supplies
+  supplies.forEach(s=>{
+    let bob=Math.sin(elapsed*3+s.bob)*3;
+    ctx.fillStyle="#e8c44c";
+    ctx.fillRect(s.x-12,s.y-12+bob,24,24);
+    ctx.strokeStyle="#fff0a0";
+    ctx.lineWidth=3;
+    ctx.strokeRect(s.x-12,s.y-12+bob,24,24);
+    ctx.fillStyle="#694b19";
+    ctx.fillRect(s.x-3,s.y-9+bob,6,18);
+    ctx.fillRect(s.x-9,s.y-3+bob,18,6);
+  });
+
+  // Zombies
+  zombies.forEach(z=>{
+    ctx.fillStyle="#152b1d";
+    ctx.beginPath();ctx.arc(z.x,z.y+4,z.r+2,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#80aa58";
+    ctx.beginPath();ctx.arc(z.x,z.y,z.r,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#b9ed6b";
+    ctx.fillRect(z.x-8,z.y-5,5,5);
+    ctx.fillRect(z.x+4,z.y-5,5,5);
+    ctx.fillStyle="#263a25";
+    ctx.fillRect(z.x-5,z.y+7,10,4);
+  });
+
+  // Player
+  ctx.fillStyle="#101d25";
+  ctx.beginPath();ctx.arc(player.x,player.y+4,player.r+3,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=playerRole==="Scout"?"#e5ba45":
+    playerRole==="Medic"?"#5bd6cb":"#4b9ce0";
+  ctx.beginPath();ctx.arc(player.x,player.y,player.r,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle="#fff";
+  ctx.beginPath();ctx.arc(player.x-5,player.y-4,3,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(player.x+5,player.y-4,3,0,Math.PI*2);ctx.fill();
+
+  // Name above character
+  ctx.font="bold 15px Arial";
+  ctx.textAlign="center";
+  ctx.lineWidth=4;
+  ctx.strokeStyle="#14221b";
+  ctx.strokeText(playerName,player.x,player.y-27);
+  ctx.fillStyle="white";
+  ctx.fillText(playerName,player.x,player.y-27);
+
+  ctx.restore();
+
+  // Mini map
+  let mw=145,mh=105;
+  let mx=canvas.width-mw-15,my=15;
+  ctx.fillStyle="#111c19dd";
+  ctx.fillRect(mx,my,mw,mh);
+  ctx.strokeStyle="#a9ce91";
+  ctx.lineWidth=2;
+  ctx.strokeRect(mx,my,mw,mh);
+  ctx.fillStyle="#f4df56";
+  ctx.beginPath();
+  ctx.arc(mx+player.x/WORLD.w*mw,my+player.y/WORLD.h*mh,4,0,Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle="#e75b52";
+  zombies.forEach(z=>{
+    ctx.fillRect(mx+z.x/WORLD.w*mw-2,my+z.y/WORLD.h*mh-2,4,4);
+  });
+}
+
+function loop(now) {
+  if(!running)return;
+  let dt=Math.min((now-lastTime)/1000,.04);
+  lastTime=now;
+  update(dt);
+  if(!running)return;
+  draw();
+  requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
+
