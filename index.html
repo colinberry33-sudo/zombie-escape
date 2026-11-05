@@ -51,9 +51,27 @@ body {
   z-index: 5;
   display: flex;
   justify-content: center;
-  align-items: center;
-  background: #07100edc;
+  align-items: flex-end;
+  padding: 16px;
+  background:
+    linear-gradient(rgba(0,0,0,.15), rgba(0,0,0,.55)),
+    url("zombie-art.png") center / cover no-repeat;
   text-align: center;
+  overflow: auto;
+}
+
+#startPanel h1 {
+  display: none;
+}
+
+.panel {
+  background: rgba(8,18,17,.92);
+  border: 3px solid #8bb66d;
+  border-radius: 20px;
+  padding: 20px;
+  width: min(430px,92vw);
+  box-shadow: 0 0 35px #000;
+  margin-bottom: 10px;
 }
 .panel {
   background: linear-gradient(145deg,#203d30,#10251e);
