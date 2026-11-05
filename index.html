@@ -6,114 +6,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Zombie Escape</title>
 <style>
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  background: #101b18;
-  color: white;
-  font-family: Arial, sans-serif;
-  overflow: hidden;
-}
-#game {
-  display: block;
-  width: 100vw;
-  height: 100vh;
-  background: #294b38;
-}
-#hud {
-  position: fixed;
-  top: 12px;
-  left: 12px;
-  z-index: 2;
-  background: #101c19dd;
-  padding: 12px 18px;
-  border: 2px solid #739b67;
-  border-radius: 12px;
-  line-height: 1.8;
-  display: none;
-}
-#healthBar {
-  width: 170px;
-  height: 13px;
-  background: #4b2424;
-  border-radius: 10px;
-  overflow: hidden;
-}
-#healthFill {
-  height: 100%;
-  width: 100%;
-  background: #39dc67;
-  transition: width .2s;
-}
-#overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 5;
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
-  padding: 16px;
-  background:
-    linear-gradient(rgba(0,0,0,.15), rgba(0,0,0,.55)),
-    url("cbf519ba-ba19-4ba3-b111-a9c0bc239f00.png") center / cover no-repeat;
-  text-align: center;
-  overflow: auto;
-}
-
-#startPanel h1 {
-  display: none;
-}
-
-.panel {
-  background: rgba(8,18,17,.92);
-  border: 3px solid #8bb66d;
-  border-radius: 20px;
-  padding: 20px;
-  width: min(430px,92vw);
-  box-shadow: 0 0 35px #000;
-  margin-bottom: 10px;
-}
-.panel {
-  background: linear-gradient(145deg,#203d30,#10251e);
-  border: 3px solid #8bb66d;
-  border-radius: 20px;
-  padding: 30px;
-  width: min(430px,92vw);
-  box-shadow: 0 0 35px #000;
-}
-h1 { color: #a8e77b; font-size: 38px; margin: 5px; }
-input, select, button {
-  width: 100%;
-  padding: 13px;
-  margin-top: 12px;
-  border-radius: 9px;
-  border: 1px solid #829b77;
-  font-size: 16px;
-}
-button {
-  background: #8bc34a;
-  color: #142414;
-  font-weight: bold;
-  cursor: pointer;
-}
-button:hover { background: #b0ed68; }
-#instructions { color: #d2e6ce; font-size: 14px; line-height: 1.7; }
+*{box-sizing:border-box}
+body{margin:0;background:#101b18;color:white;font-family:Arial,sans-serif;overflow:hidden}
+#game{display:block;width:100vw;height:100vh;background:#294b38}
+#hud{position:fixed;top:12px;left:12px;z-index:2;background:#101c19dd;padding:12px 18px;border:2px solid #739b67;border-radius:12px;line-height:1.8;display:none}
+#healthBar{width:170px;height:13px;background:#4b2424;border-radius:10px;overflow:hidden}
+#healthFill{height:100%;width:100%;background:#39dc67;transition:width .2s}
+#overlay{position:fixed;inset:0;z-index:5;display:flex;justify-content:center;align-items:flex-end;padding:16px;background:linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.55)),url("cbf519ba-ba19-4ba3-b111-a9c0bc239f00.png") center/cover no-repeat;text-align:center;overflow:auto}
+#startPanel h1{display:none}
+.panel{background:linear-gradient(145deg,#203d30,#10251e);border:3px solid #8bb66d;border-radius:20px;padding:30px;width:min(430px,92vw);box-shadow:0 0 35px #000;margin-bottom:10px}
+h1{color:#a8e77b;font-size:38px;margin:5px}
+input,select,button{width:100%;padding:13px;margin-top:12px;border-radius:9px;border:1px solid #829b77;font-size:16px}
+button{background:#8bc34a;color:#142414;font-weight:bold;cursor:pointer}
+button:hover{background:#b0ed68}
+#instructions{color:#d2e6ce;font-size:14px;line-height:1.7}
+#mapLabel{position:fixed;right:15px;top:132px;z-index:2;background:#101c19dd;border:1px solid #739b67;border-radius:8px;padding:7px 10px;font-size:12px;display:none}
 </style>
 </head>
 <body>
-
 <canvas id="game"></canvas>
-
 <div id="hud">
   <b>🧟 ZOMBIE ESCAPE</b><br>
   Player: <span id="playerLabel"></span><br>
   Role: <span id="roleLabel"></span><br>
   ❤️ Health: <span id="healthText">100</span>
   <div id="healthBar"><div id="healthFill"></div></div>
-  📦 Supplies: <span id="supplyText">0</span>
-  <br><small>WASD = Move | Collect supplies!</small>
+  📦 Supplies: <span id="supplyText">0</span><br>
+  <small>WASD = Move | Collect supplies!</small>
 </div>
-
+<div id="mapLabel">EXPANDED CITY MAP</div>
 <div id="overlay">
   <div class="panel" id="startPanel">
     <h1>🧟 ZOMBIE ESCAPE</h1>
@@ -125,11 +46,7 @@ button:hover { background: #b0ed68; }
       <option value="Medic">Medic - Extra health</option>
     </select>
     <button id="startButton">START SURVIVING</button>
-    <p id="instructions">
-      Use W, A, S, D to move.<br>
-      Collect supply crates and avoid zombies.<br>
-      Stay alive as long as possible!
-    </p>
+    <p id="instructions">Use W, A, S, D to move.<br>Explore the expanded city, collect supply crates, and avoid the zombies.<br>Stay alive as long as possible!</p>
   </div>
   <div class="panel" id="deadPanel" style="display:none">
     <h1>💀 GAME OVER</h1>
@@ -138,331 +55,256 @@ button:hover { background: #b0ed68; }
     <button id="retryButton">🔄 RETRY</button>
   </div>
 </div>
-
 <script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight}
+window.addEventListener("resize",resize);resize();
 
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-window.addEventListener("resize", resize);
-resize();
+// The city is now twice as wide and twice as tall as the original map.
+const WORLD={w:3600,h:2600};
+const keys={};
+let player,zombies=[],supplies=[],particles=[];
+let buildings=[],trees=[];
+let running=false,playerName="Survivor",playerRole="Survivor";
+let collected=0,elapsed=0,lastTime=0,spawnTimer=0;
 
-const WORLD = {w:1800,h:1300};
-const keys = {};
-let player, zombies, supplies, particles;
-let buildings = [];
-let trees = [];
-let running = false;
-let gameStarted = false;
-let playerName = "Survivor";
-let playerRole = "Survivor";
-let collected = 0;
-let elapsed = 0;
-let lastTime = 0;
-let spawnTimer = 0;
-
-function random(min,max) {
-  return Math.random()*(max-min)+min;
-}
-
-function circleRect(x,y,r,b) {
-  let nx=Math.max(b.x,Math.min(x,b.x+b.w));
-  let ny=Math.max(b.y,Math.min(y,b.y+b.h));
+function random(min,max){return Math.random()*(max-min)+min}
+function circleRect(x,y,r,b){
+  const nx=Math.max(b.x,Math.min(x,b.x+b.w));
+  const ny=Math.max(b.y,Math.min(y,b.y+b.h));
   return Math.hypot(x-nx,y-ny)<r;
 }
-
-function blocked(x,y,r) {
-  if(x<r || y<r || x>WORLD.w-r || y>WORLD.h-r) return true;
+function blocked(x,y,r){
+  if(x<r||y<r||x>WORLD.w-r||y>WORLD.h-r)return true;
   return buildings.some(b=>circleRect(x,y,r,b));
 }
-
-function createMap() {
+function createMap(){
+  // More neighborhoods, shops, warehouses, and small buildings.
   buildings=[
-    {x:170,y:150,w:230,h:170,color:"#68716c"},
-    {x:690,y:130,w:260,h:190,color:"#766b5b"},
-    {x:1280,y:150,w:300,h:190,color:"#5e706b"},
-    {x:190,y:650,w:280,h:210,color:"#746b5c"},
-    {x:700,y:680,w:310,h:210,color:"#596b70"},
-    {x:1300,y:670,w:260,h:240,color:"#77705c"},
-    {x:780,y:1080,w:260,h:130,color:"#6e6558"}
+    {x:180,y:150,w:310,h:210,color:"#68716c",kind:"shop"},
+    {x:650,y:170,w:260,h:230,color:"#766b5b",kind:"house"},
+    {x:1120,y:140,w:350,h:240,color:"#5e706b",kind:"warehouse"},
+    {x:2040,y:160,w:330,h:220,color:"#746b5c",kind:"shop"},
+    {x:2630,y:170,w:360,h:250,color:"#596b70",kind:"warehouse"},
+    {x:3150,y:180,w:260,h:210,color:"#77705c",kind:"house"},
+    {x:180,y:850,w:340,h:250,color:"#746b5c",kind:"house"},
+    {x:690,y:900,w:310,h:230,color:"#596b70",kind:"shop"},
+    {x:1200,y:820,w:360,h:270,color:"#77705c",kind:"warehouse"},
+    {x:2050,y:850,w:330,h:250,color:"#68716c",kind:"house"},
+    {x:2660,y:900,w:330,h:250,color:"#766b5b",kind:"shop"},
+    {x:3150,y:820,w:260,h:280,color:"#5e706b",kind:"house"},
+    {x:200,y:1660,w:330,h:250,color:"#5e706b",kind:"warehouse"},
+    {x:700,y:1710,w:320,h:240,color:"#77705c",kind:"house"},
+    {x:1200,y:1630,w:360,h:260,color:"#68716c",kind:"shop"},
+    {x:2040,y:1680,w:350,h:260,color:"#766b5b",kind:"house"},
+    {x:2650,y:1650,w:330,h:270,color:"#596b70",kind:"warehouse"},
+    {x:3150,y:1690,w:270,h:230,color:"#746b5c",kind:"shop"},
+    {x:680,y:2220,w:330,h:210,color:"#5e706b",kind:"house"},
+    {x:1640,y:2200,w:360,h:230,color:"#77705c",kind:"warehouse"},
+    {x:2640,y:2200,w:350,h:220,color:"#68716c",kind:"shop"}
   ];
   trees=[];
-  for(let i=0;i<100;i++){
-    let x=random(40,WORLD.w-40);
-    let y=random(40,WORLD.h-40);
-    if(!buildings.some(b=>circleRect(x,y,22,b)))
-      trees.push({x,y,r:random(12,23)});
+  for(let i=0;i<460;i++){
+    const x=random(35,WORLD.w-35),y=random(35,WORLD.h-35);
+    const nearRoad=(Math.abs(x-900)<95||Math.abs(x-1800)<95||Math.abs(x-2700)<95||
+                    Math.abs(y-650)<95||Math.abs(y-1300)<95||Math.abs(y-1950)<95);
+    if(!nearRoad&&!buildings.some(b=>circleRect(x,y,25,b)))
+      trees.push({x,y,r:random(13,25),shade:Math.floor(random(0,3))});
   }
 }
-
-function makePlayer() {
-  let health=playerRole==="Medic"?130:100;
-  return {
-    x:900,y:500,r:17,
-    health,maxHealth:health,
-    speed:playerRole==="Scout"?245:190,
-    lastHit:0
-  };
+function makePlayer(){
+  const health=playerRole==="Medic"?130:100;
+  return{x:1800,y:1300,r:17,health,maxHealth:health,
+    speed:playerRole==="Scout"?245:190,lastHit:0};
 }
-
-function spawnSupply() {
-  for(let i=0;i<150;i++){
-    let x=random(50,WORLD.w-50);
-    let y=random(50,WORLD.h-50);
-    if(!blocked(x,y,15)&&Math.hypot(x-player.x,y-player.y)>100){
-      supplies.push({x,y,r:13,bob:random(0,6)});
+function spawnSupply(){
+  for(let i=0;i<180;i++){
+    const x=random(55,WORLD.w-55),y=random(55,WORLD.h-55);
+    if(!blocked(x,y,15)&&Math.hypot(x-player.x,y-player.y)>130){
+      supplies.push({x,y,r:13,bob:random(0,6)});return;
+    }
+  }
+}
+function spawnZombie(){
+  for(let i=0;i<140;i++){
+    const angle=random(0,Math.PI*2),distance=random(480,760);
+    const x=player.x+Math.cos(angle)*distance,y=player.y+Math.sin(angle)*distance;
+    if(x>30&&y>30&&x<WORLD.w-30&&y<WORLD.h-30&&!blocked(x,y,18)){
+      const roll=Math.random();
+      const type=roll<.62?"walker":roll<.88?"runner":"brute";
+      const stats=type==="runner"?{r:13,speed:105,health:1}:
+                  type==="brute"?{r:23,speed:39,health:3}:{r:17,speed:62,health:2};
+      zombies.push({x,y,...stats,type,phase:random(0,6),facing:0,step:0});
       return;
     }
   }
 }
-
-function spawnZombie() {
-  for(let i=0;i<100;i++){
-    let angle=random(0,Math.PI*2);
-    let distance=random(450,650);
-    let x=player.x+Math.cos(angle)*distance;
-    let y=player.y+Math.sin(angle)*distance;
-    if(x>25&&y>25&&x<WORLD.w-25&&y<WORLD.h-25&&!blocked(x,y,16)){
-      zombies.push({x,y,r:16,speed:random(48,75),phase:random(0,6)});
-      return;
-    }
-  }
-}
-
-function startGame() {
+function startGame(){
   playerName=document.getElementById("nameInput").value.trim()||"Survivor";
   playerRole=document.getElementById("roleInput").value;
   document.getElementById("playerLabel").textContent=playerName;
   document.getElementById("roleLabel").textContent=playerRole;
   document.getElementById("overlay").style.display="none";
   document.getElementById("hud").style.display="block";
-  createMap();
-  player=makePlayer();
-  zombies=[];
-  supplies=[];
-  particles=[];
-  collected=0;
-  elapsed=0;
-  spawnTimer=0;
-  for(let i=0;i<7;i++) spawnZombie();
-  for(let i=0;i<12;i++) spawnSupply();
-  running=true;
-  gameStarted=true;
-  lastTime=performance.now();
-  requestAnimationFrame(loop);
+  document.getElementById("mapLabel").style.display="block";
+  createMap();player=makePlayer();zombies=[];supplies=[];particles=[];
+  collected=0;elapsed=0;spawnTimer=0;
+  for(let i=0;i<13;i++)spawnZombie();
+  for(let i=0;i<24;i++)spawnSupply();
+  running=true;lastTime=performance.now();requestAnimationFrame(loop);
 }
-
 document.getElementById("startButton").onclick=startGame;
 document.getElementById("retryButton").onclick=startGame;
-
 window.addEventListener("keydown",e=>{
-  let k=e.key.toLowerCase();
-  if(["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"].includes(k))
-    e.preventDefault();
+  const k=e.key.toLowerCase();
+  if(["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"].includes(k))e.preventDefault();
   keys[k]=true;
 });
 window.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
 
-function die() {
+function die(){
   if(!running)return;
   running=false;
   document.getElementById("hud").style.display="none";
+  document.getElementById("mapLabel").style.display="none";
   document.getElementById("overlay").style.display="flex";
   document.getElementById("startPanel").style.display="none";
   document.getElementById("deadPanel").style.display="block";
   document.getElementById("finalScore").textContent=
     "Supplies collected: "+collected+" | Survival time: "+Math.floor(elapsed)+" seconds";
 }
-
-function update(dt) {
+function update(dt){
   elapsed+=dt;
   let dx=0,dy=0;
-  if(keys.w)dy--;
-  if(keys.s)dy++;
-  if(keys.a)dx--;
-  if(keys.d)dx++;
-
-  let len=Math.hypot(dx,dy);
-  if(len){
-    dx=dx/len*player.speed*dt;
-    dy=dy/len*player.speed*dt;
-  }
-
+  if(keys.w)dy--;if(keys.s)dy++;if(keys.a)dx--;if(keys.d)dx++;
+  const len=Math.hypot(dx,dy);
+  if(len){dx=dx/len*player.speed*dt;dy=dy/len*player.speed*dt}
   if(!blocked(player.x+dx,player.y,player.r))player.x+=dx;
   if(!blocked(player.x,player.y+dy,player.r))player.y+=dy;
 
   zombies.forEach(z=>{
-    let vx=player.x-z.x;
-    let vy=player.y-z.y;
-    let d=Math.hypot(vx,vy)||1;
-    let speed=z.speed+Math.min(35,elapsed*.3);
-    let mx=vx/d*speed*dt;
-    let my=vy/d*speed*dt;
+    const vx=player.x-z.x,vy=player.y-z.y,d=Math.hypot(vx,vy)||1;
+    z.facing=Math.atan2(vy,vx);z.step+=dt*8;
+    const speed=z.speed+Math.min(24,elapsed*.12);
+    const mx=vx/d*speed*dt,my=vy/d*speed*dt;
     if(!blocked(z.x+mx,z.y,z.r))z.x+=mx;
     if(!blocked(z.x,z.y+my,z.r))z.y+=my;
-
-    if(d<player.r+z.r+4 && elapsed-player.lastHit>0.85){
-      player.health-=12;
+    if(d<player.r+z.r+5&&elapsed-player.lastHit>0.9){
+      player.health-=z.type==="brute"?18:10;
       player.lastHit=elapsed;
-      if(player.health<=0){
-        player.health=0;
-        die();
-      }
+      if(player.health<=0){player.health=0;die()}
     }
   });
-
-  supplies.forEach((s,i)=>{
+  for(let i=supplies.length-1;i>=0;i--){
+    const s=supplies[i];
     if(Math.hypot(player.x-s.x,player.y-s.y)<player.r+s.r+4){
-      collected++;
-      supplies.splice(i,1);
-      spawnSupply();
+      collected++;supplies.splice(i,1);spawnSupply();
     }
-  });
-
-  spawnTimer+=dt;
-  if(spawnTimer>12&&zombies.length<25){
-    spawnZombie();
-    spawnTimer=0;
   }
-
+  spawnTimer+=dt;
+  if(spawnTimer>10&&zombies.length<38){spawnZombie();spawnTimer=0}
   document.getElementById("healthText").textContent=Math.ceil(player.health);
-  document.getElementById("healthFill").style.width=
-    (player.health/player.maxHealth*100)+"%";
+  document.getElementById("healthFill").style.width=(player.health/player.maxHealth*100)+"%";
   document.getElementById("supplyText").textContent=collected;
 }
 
-function draw() {
-  let camX=Math.max(0,Math.min(WORLD.w-canvas.width,player.x-canvas.width/2));
-  let camY=Math.max(0,Math.min(WORLD.h-canvas.height,player.y-canvas.height/2));
-
-  ctx.fillStyle="#385e40";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-
-  ctx.save();
-  ctx.translate(-camX,-camY);
-
-  // Grass and ground details
-  ctx.fillStyle="#416c48";
-  ctx.fillRect(0,0,WORLD.w,WORLD.h);
-  for(let i=0;i<350;i++){
-    let x=(i*137)%WORLD.w;
-    let y=(i*211)%WORLD.h;
-    ctx.fillStyle=i%2?"#4c754d":"#385f40";
-    ctx.fillRect(x,y,5,5);
+function drawZombie(z){
+  const bob=Math.sin(z.step)*2;
+  const skin=z.type==="brute"?"#6f8760":z.type==="runner"?"#a4b879":"#829b6b";
+  const coat=z.type==="brute"?"#493f42":z.type==="runner"?"#594c3e":"#394d49";
+  ctx.save();ctx.translate(z.x,z.y+bob);ctx.rotate(z.facing);
+  // Shadow and two reaching arms
+  ctx.fillStyle="#15251c99";ctx.beginPath();ctx.ellipse(0,z.r+5,z.r+7,6,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle=skin;ctx.lineWidth=z.type==="brute"?9:6;ctx.lineCap="round";
+  ctx.beginPath();ctx.moveTo(-3,-5);ctx.lineTo(-z.r-9,-13);ctx.moveTo(5,-4);ctx.lineTo(z.r+11,-10);ctx.stroke();
+  // Body and head
+  ctx.fillStyle=coat;ctx.beginPath();ctx.ellipse(0,5,z.r*.72,z.r*.9,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=skin;ctx.beginPath();ctx.ellipse(5,-z.r*.55,z.r*.72,z.r*.7,-.15,0,Math.PI*2);ctx.fill();
+  // Hair, ragged clothing, and face details (cartoon, non-graphic)
+  ctx.fillStyle="#29352b";ctx.beginPath();ctx.arc(3,-z.r*.95,z.r*.55,Math.PI,Math.PI*2);ctx.fill();
+  ctx.fillStyle="#d9d66e";
+  ctx.beginPath();ctx.ellipse(9,-z.r*.62,3.3,2.5,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle="#263126";ctx.beginPath();ctx.arc(10,-z.r*.62,1.3,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle="#39422f";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(7,1);ctx.lineTo(14,3);ctx.stroke();
+  ctx.fillStyle="#b8c5a0";ctx.fillRect(-7,8,5,3);ctx.fillRect(3,11,5,3);
+  if(z.type==="runner"){
+    ctx.fillStyle="#d6c68d";ctx.fillRect(-5,-z.r-5,8,3);
+  }else if(z.type==="brute"){
+    ctx.fillStyle="#8f9e79";ctx.fillRect(-z.r-3,-2,7,12);ctx.fillRect(z.r-3,0,7,12);
   }
-
-  // Roads
+  ctx.restore();
+}
+function draw(){
+  const camX=Math.max(0,Math.min(WORLD.w-canvas.width,player.x-canvas.width/2));
+  const camY=Math.max(0,Math.min(WORLD.h-canvas.height,player.y-canvas.height/2));
+  ctx.fillStyle="#385e40";ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.save();ctx.translate(-camX,-camY);
+  ctx.fillStyle="#416c48";ctx.fillRect(0,0,WORLD.w,WORLD.h);
+  for(let i=0;i<900;i++){
+    const x=(i*137)%WORLD.w,y=(i*211)%WORLD.h;
+    ctx.fillStyle=i%2?"#4c754d":"#385f40";ctx.fillRect(x,y,5,5);
+  }
+  // City streets form a larger connected grid.
   ctx.fillStyle="#555b55";
-  ctx.fillRect(0,450,WORLD.w,125);
-  ctx.fillRect(500,0,115, WORLD.h);
+  [900,1800,2700].forEach(x=>ctx.fillRect(x-58,0,116,WORLD.h));
+  [650,1300,1950].forEach(y=>ctx.fillRect(0,y-60,WORLD.w,120));
   ctx.fillStyle="#c6b77a";
-  for(let x=0;x<WORLD.w;x+=65)ctx.fillRect(x,509,32,5);
-  for(let y=0;y<WORLD.h;y+=65)ctx.fillRect(553,y,5,32);
-
-  // Buildings
+  [900,1800,2700].forEach(x=>{for(let y=0;y<WORLD.h;y+=65)ctx.fillRect(x-2,y,4,30)});
+  [650,1300,1950].forEach(y=>{for(let x=0;x<WORLD.w;x+=65)ctx.fillRect(x,y-2,30,4)});
+  // Buildings with roof trim, windows, doors, and subtle rooftop units.
   buildings.forEach(b=>{
-    ctx.fillStyle="#202d27";
-    ctx.fillRect(b.x+9,b.y+12,b.w,b.h);
-    ctx.fillStyle=b.color;
-    ctx.fillRect(b.x,b.y,b.w,b.h);
-    ctx.fillStyle="#424c47";
-    ctx.fillRect(b.x,b.y,b.w,19);
+    ctx.fillStyle="#202d27";ctx.fillRect(b.x+10,b.y+13,b.w,b.h);
+    ctx.fillStyle=b.color;ctx.fillRect(b.x,b.y,b.w,b.h);
+    ctx.fillStyle="#424c47";ctx.fillRect(b.x,b.y,b.w,22);
     ctx.fillStyle="#a9c3b4";
     for(let x=b.x+25;x<b.x+b.w-15;x+=65){
-      ctx.fillRect(x,b.y+45,30,32);
+      ctx.fillRect(x,b.y+48,31,34);
+      ctx.strokeStyle="#35443d";ctx.lineWidth=3;ctx.strokeRect(x,b.y+48,31,34);
     }
-    ctx.fillStyle="#303a35";
-    ctx.fillRect(b.x+b.w/2-22,b.y+b.h-45,44,45);
+    ctx.fillStyle="#303a35";ctx.fillRect(b.x+b.w/2-22,b.y+b.h-48,44,48);
+    ctx.fillStyle="#9c9b82";ctx.fillRect(b.x+18,b.y+12,35,5);
+    if(b.kind==="warehouse"){ctx.fillStyle="#343d38";ctx.fillRect(b.x+b.w-65,b.y+25,42,24)}
   });
-
-  // Trees
+  // Scattered trees and bushes.
   trees.forEach(t=>{
-    ctx.fillStyle="#61462c";
-    ctx.fillRect(t.x-5,t.y,10,20);
-    ctx.fillStyle="#1b492c";
+    ctx.fillStyle="#61462c";ctx.fillRect(t.x-5,t.y,10,22);
+    ctx.fillStyle=t.shade===0?"#1b492c":t.shade===1?"#245b32":"#2c6739";
     ctx.beginPath();ctx.arc(t.x,t.y,t.r+6,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle="#337d40";
-    ctx.beginPath();ctx.arc(t.x-5,t.y-5,t.r,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#337d40";ctx.beginPath();ctx.arc(t.x-5,t.y-5,t.r,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#4b8a4b";ctx.beginPath();ctx.arc(t.x+6,t.y-8,t.r*.55,0,Math.PI*2);ctx.fill();
   });
-
-  // Supplies
+  // Supply crates
   supplies.forEach(s=>{
-    let bob=Math.sin(elapsed*3+s.bob)*3;
-    ctx.fillStyle="#e8c44c";
-    ctx.fillRect(s.x-12,s.y-12+bob,24,24);
-    ctx.strokeStyle="#fff0a0";
-    ctx.lineWidth=3;
-    ctx.strokeRect(s.x-12,s.y-12+bob,24,24);
-    ctx.fillStyle="#694b19";
-    ctx.fillRect(s.x-3,s.y-9+bob,6,18);
-    ctx.fillRect(s.x-9,s.y-3+bob,18,6);
+    const bob=Math.sin(elapsed*3+s.bob)*3;
+    ctx.fillStyle="#e8c44c";ctx.fillRect(s.x-12,s.y-12+bob,24,24);
+    ctx.strokeStyle="#fff0a0";ctx.lineWidth=3;ctx.strokeRect(s.x-12,s.y-12+bob,24,24);
+    ctx.fillStyle="#694b19";ctx.fillRect(s.x-3,s.y-9+bob,6,18);ctx.fillRect(s.x-9,s.y-3+bob,18,6);
   });
-
-  // Zombies
-  zombies.forEach(z=>{
-    ctx.fillStyle="#152b1d";
-    ctx.beginPath();ctx.arc(z.x,z.y+4,z.r+2,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle="#80aa58";
-    ctx.beginPath();ctx.arc(z.x,z.y,z.r,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle="#b9ed6b";
-    ctx.fillRect(z.x-8,z.y-5,5,5);
-    ctx.fillRect(z.x+4,z.y-5,5,5);
-    ctx.fillStyle="#263a25";
-    ctx.fillRect(z.x-5,z.y+7,10,4);
-  });
-
-  // Player
-  ctx.fillStyle="#101d25";
-  ctx.beginPath();ctx.arc(player.x,player.y+4,player.r+3,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle=playerRole==="Scout"?"#e5ba45":
-    playerRole==="Medic"?"#5bd6cb":"#4b9ce0";
+  zombies.forEach(drawZombie);
+  // Player character
+  ctx.fillStyle="#101d25";ctx.beginPath();ctx.arc(player.x,player.y+4,player.r+3,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=playerRole==="Scout"?"#e5ba45":playerRole==="Medic"?"#5bd6cb":"#4b9ce0";
   ctx.beginPath();ctx.arc(player.x,player.y,player.r,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle="#fff";
-  ctx.beginPath();ctx.arc(player.x-5,player.y-4,3,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(player.x-5,player.y-4,3,0,Math.PI*2);ctx.fill();
   ctx.beginPath();ctx.arc(player.x+5,player.y-4,3,0,Math.PI*2);ctx.fill();
-
-  // Name above character
-  ctx.font="bold 15px Arial";
-  ctx.textAlign="center";
-  ctx.lineWidth=4;
-  ctx.strokeStyle="#14221b";
-  ctx.strokeText(playerName,player.x,player.y-27);
-  ctx.fillStyle="white";
-  ctx.fillText(playerName,player.x,player.y-27);
-
+  ctx.font="bold 15px Arial";ctx.textAlign="center";ctx.lineWidth=4;ctx.strokeStyle="#14221b";
+  ctx.strokeText(playerName,player.x,player.y-27);ctx.fillStyle="white";ctx.fillText(playerName,player.x,player.y-27);
   ctx.restore();
-
-  // Mini map
-  let mw=145,mh=105;
-  let mx=canvas.width-mw-15,my=15;
-  ctx.fillStyle="#111c19dd";
-  ctx.fillRect(mx,my,mw,mh);
-  ctx.strokeStyle="#a9ce91";
-  ctx.lineWidth=2;
-  ctx.strokeRect(mx,my,mw,mh);
-  ctx.fillStyle="#f4df56";
-  ctx.beginPath();
-  ctx.arc(mx+player.x/WORLD.w*mw,my+player.y/WORLD.h*mh,4,0,Math.PI*2);
-  ctx.fill();
+  // Minimap now shows the full expanded city.
+  const mw=160,mh=116,mx=canvas.width-mw-15,my=15;
+  ctx.fillStyle="#111c19dd";ctx.fillRect(mx,my,mw,mh);
+  ctx.strokeStyle="#a9ce91";ctx.lineWidth=2;ctx.strokeRect(mx,my,mw,mh);
+  ctx.fillStyle="#f4df56";ctx.beginPath();
+  ctx.arc(mx+player.x/WORLD.w*mw,my+player.y/WORLD.h*mh,4,0,Math.PI*2);ctx.fill();
   ctx.fillStyle="#e75b52";
-  zombies.forEach(z=>{
-    ctx.fillRect(mx+z.x/WORLD.w*mw-2,my+z.y/WORLD.h*mh-2,4,4);
-  });
+  zombies.forEach(z=>ctx.fillRect(mx+z.x/WORLD.w*mw-2,my+z.y/WORLD.h*mh-2,4,4));
 }
-
-function loop(now) {
+function loop(now){
   if(!running)return;
-  let dt=Math.min((now-lastTime)/1000,.04);
-  lastTime=now;
-  update(dt);
-  if(!running)return;
-  draw();
-  requestAnimationFrame(loop);
+  const dt=Math.min((now-lastTime)/1000,.04);lastTime=now;
+  update(dt);if(!running)return;draw();requestAnimationFrame(loop);
 }
 </script>
 </body>
 </html>
-
