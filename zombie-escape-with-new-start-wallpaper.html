@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zombie Escape</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101b18;color:white;font-family:Arial,sans-serif;overflow:hidden}
+#game{display:block;width:100vw;height:100vh;background:#294b38}
+#hud{position:fixed;top:12px;left:12px;z-index:2;background:#101c19ed;padding:10px 14px;border:2px solid #739b67;border-radius:12px;line-height:1.65;display:none;max-width:260px;box-shadow:0 5px 18px #0008}
+#healthBar{width:170px;height:13px;background:#4b2424;border-radius:10px;overflow:hidden}
+#healthFill{height:100%;width:100%;background:#39dc67;transition:width .2s}
+#overlay{position:fixed;inset:0;z-index:5;display:flex;justify-content:flex-start;align-items:center;padding:clamp(14px,4vw,54px);background:linear-gradient(90deg,rgba(0,0,0,.68),rgba(0,0,0,.12)),url("cbf519ba-ba19-4ba3-b111-a9c0bc239f00.png") center/cover no-repeat;text-align:left;overflow:auto}
+#startPanel h1{display:none}
+.panel{background:linear-gradient(145deg,#203d30ee,#10251eee);border:3px solid #8bb66d;border-radius:20px;padding:24px;width:min(390px,92vw);box-shadow:0 0 35px #000;margin:0}
+h1{color:#a8e77b;font-size:38px;margin:5px}
+input,select,button{width:100%;padding:13px;margin-top:12px;border-radius:9px;border:1px solid #829b77;font-size:16px}
+button{background:#8bc34a;color:#142414;font-weight:bold;cursor:pointer}
+button:hover{background:#b0ed68}
+#instructions{color:#d2e6ce;font-size:14px;line-height:1.7}
+#mapLabel{position:fixed;right:224px;top:14px;z-index:2;background:#101c19ed;border:1px solid #739b67;border-radius:8px;padding:8px 11px;font-size:12px;display:none;box-shadow:0 4px 14px #0007}
+#upgradePanel{display:none;position:fixed;right:12px;top:12px;z-index:3;background:#101c19ed;border:2px solid #a8c879;border-radius:12px;padding:12px;width:200px;color:white;box-shadow:0 5px 18px #0008}
+#upgradePanel button{width:100%}
+@media(max-width:700px){
+  #hud{top:8px;left:8px;padding:7px 9px;font-size:12px;line-height:1.45;max-width:190px}
+  #healthBar{width:125px}
+  #upgradePanel{top:8px;right:8px;width:165px;padding:8px;font-size:12px}
+  #upgradePanel button{font-size:12px;padding:7px}
+  #mapLabel{top:150px;right:8px;font-size:10px}
+  #overlay{justify-content:center;align-items:flex-end;padding:12px;text-align:center;background:linear-gradient(rgba(0,0,0,.18),rgba(0,0,0,.68)),url("cbf519ba-ba19-4ba3-b111-a9c0bc239f00.png") center/cover no-repeat}
+  .panel{padding:18px;width:min(390px,96vw);margin-bottom:8px}
+  h1{font-size:30px}
+}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud">
+  <b>🧟 ZOMBIE ESCAPE</b><br>
+  Player: <span id="playerLabel"></span><br>
+  Role: <span id="roleLabel"></span><br>
+  ❤️ Health: <span id="healthText">100</span>
+  <div id="healthBar"><div id="healthFill"></div></div>
+  📦 Supplies: <span id="supplyText">0</span><br>
+  🪙 Coins: <span id="coinText">0</span><br>
+  <small>WASD = Move | Mouse click = Fire energy bolts</small><br>
+  <button id="soundButton" style="width:auto;padding:6px 10px;margin-top:7px">🔊 Sound: ON</button>
+</div>
+<div id="upgradePanel">
+  <b>✨ Blaster upgrades</b><br>
+  <small id="upgradeInfo">Level 1 · Damage 1</small>
+  <button id="upgradeButton" style="padding:9px;margin-top:8px">Upgrade · 10 coins</button>
+  <small id="upgradeMessage">Defeat zombies to earn coins.</small>
+</div>
+<div id="mapLabel">EXPANDED CITY MAP</div>
+<div id="overlay">
+  <div class="panel" id="startPanel">
+    <h1>🧟 ZOMBIE ESCAPE</h1>
+    <p>Survive the zombie outbreak!</p>
+    <input id="nameInput" maxlength="16" placeholder="Enter your player name">
+    <select id="roleInput">
+      <option value="Survivor">Survivor - Balanced stats</option>
+      <option value="Scout">Scout - Faster movement</option>
+      <option value="Medic">Medic - Extra health</option>
+    </select>
+    <button id="startButton">START SURVIVING</button>
+    <p id="instructions">Use W, A, S, D to move.<br>Explore the expanded city, collect supply crates, and avoid the zombies.<br>Stay alive as long as possible!</p>
+  </div>
+  <div class="panel" id="deadPanel" style="display:none">
+    <h1>💀 GAME OVER</h1>
+    <p>The zombies caught you!</p>
+    <p id="finalScore"></p>
+    <button id="retryButton">🔄 RETRY</button>
+  </div>
+</div>
+<script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight}
+window.addEventListener("resize",resize);resize();
+
+// The city is now twice as wide and twice as tall as the original map.
+const WORLD={w:3600,h:2600};
+const keys={};
+let player,zombies=[],supplies=[],particles=[],bolts=[];
+let buildings=[],trees=[],cars=[],debris=[];
+let running=false,playerName="Survivor",playerRole="Survivor";
+let collected=0,coins=0,gunLevel=1,elapsed=0,lastTime=0,spawnTimer=0;
+let cameraX=0,cameraY=0,mouseX=0,mouseY=0,lastShot=0;
+let audioCtx=null,musicNodes=[],soundEnabled=true;
+
+function initAudio(){
+  const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+  if(!AudioContextClass)return;
+  if(!audioCtx)audioCtx=new AudioContextClass();
+  if(audioCtx.state==="suspended")audioCtx.resume();
+  if(!musicNodes.length){
+    // Quiet, original ambient survival-game music made with synthesizer tones.
+    const master=audioCtx.createGain();master.gain.value=0.045;master.connect(audioCtx.destination);
+    const pad1=audioCtx.createOscillator(),pad2=audioCtx.createOscillator();
+    const bass=audioCtx.createOscillator(),pulse=audioCtx.createOscillator();
+    const pulseGain=audioCtx.createGain();
+    pad1.type="sine";pad2.type="triangle";bass.type="sine";pulse.type="sine";
+    pad1.frequency.value=110;pad2.frequency.value=164.81;bass.frequency.value=55;
+    pulse.frequency.value=0.16;pulseGain.gain.value=0.012;
+    pad1.connect(master);pad2.connect(master);bass.connect(master);
+    pulse.connect(pulseGain);pulseGain.connect(master);
+    pad1.start();pad2.start();bass.start();pulse.start();
+    musicNodes=[master,pad1,pad2,bass,pulse,pulseGain];
+  }
+  musicNodes[0].gain.setTargetAtTime(soundEnabled?0.045:0,audioCtx.currentTime,0.12);
+}
+function tone(freq,duration,type="sine",volume=0.08,endFreq=null){
+  if(!soundEnabled||!audioCtx)return;
+  const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();
+  osc.type=type;osc.frequency.setValueAtTime(freq,audioCtx.currentTime);
+  if(endFreq)osc.frequency.exponentialRampToValueAtTime(Math.max(1,endFreq),audioCtx.currentTime+duration);
+  gain.gain.setValueAtTime(volume,audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+duration);
+  osc.connect(gain);gain.connect(audioCtx.destination);osc.start();osc.stop(audioCtx.currentTime+duration);
+}
+function playShotSound(){tone(520,0.12,"sawtooth",0.045,180);tone(980,0.07,"sine",0.025,420)}
+function playHitSound(){tone(240,0.16,"triangle",0.07,95)}
+function playDefeatSound(){tone(660,0.12,"sine",0.06,880);setTimeout(()=>tone(880,0.18,"sine",0.05,1180),90)}
+function setSoundEnabled(value){
+  soundEnabled=value;
+  document.getElementById("soundButton").textContent=soundEnabled?"🔊 Sound: ON":"🔇 Sound: OFF";
+  if(audioCtx&&musicNodes.length)musicNodes[0].gain.setTargetAtTime(soundEnabled?0.045:0,audioCtx.currentTime,0.12);
+}
+
+function random(min,max){return Math.random()*(max-min)+min}
+function circleRect(x,y,r,b){
+  const nx=Math.max(b.x,Math.min(x,b.x+b.w));
+  const ny=Math.max(b.y,Math.min(y,b.y+b.h));
+  return Math.hypot(x-nx,y-ny)<r;
+}
+function blocked(x,y,r){
+  if(x<r||y<r||x>WORLD.w-r||y>WORLD.h-r)return true;
+  return buildings.some(b=>circleRect(x,y,r,b));
+}
+function createMap(){
+  // More neighborhoods, shops, warehouses, and small buildings.
+  buildings=[
+    {x:180,y:150,w:310,h:210,color:"#68716c",kind:"shop"},
+    {x:520,y:170,w:260,h:230,color:"#766b5b",kind:"house"},
+    {x:1120,y:140,w:350,h:240,color:"#5e706b",kind:"warehouse"},
+    {x:2040,y:160,w:330,h:220,color:"#746b5c",kind:"shop"},
+    {x:2390,y:170,w:220,h:250,color:"#596b70",kind:"warehouse"},
+    {x:3150,y:180,w:260,h:210,color:"#77705c",kind:"house"},
+    {x:180,y:850,w:340,h:250,color:"#746b5c",kind:"house"},
+    {x:530,y:900,w:260,h:230,color:"#596b70",kind:"shop"},
+    {x:1200,y:820,w:360,h:270,color:"#77705c",kind:"warehouse"},
+    {x:2050,y:850,w:330,h:250,color:"#68716c",kind:"house"},
+    {x:2390,y:900,w:220,h:250,color:"#766b5b",kind:"shop"},
+    {x:3150,y:820,w:260,h:280,color:"#5e706b",kind:"house"},
+    {x:200,y:1660,w:330,h:250,color:"#5e706b",kind:"warehouse"},
+    {x:520,y:1600,w:270,h:240,color:"#77705c",kind:"house"},
+    {x:1200,y:1630,w:360,h:260,color:"#68716c",kind:"shop"},
+    {x:2040,y:1680,w:350,h:260,color:"#766b5b",kind:"house"},
+    {x:2390,y:1580,w:220,h:260,color:"#596b70",kind:"warehouse"},
+    {x:3150,y:1690,w:270,h:230,color:"#746b5c",kind:"shop"},
+    {x:510,y:2220,w:270,h:210,color:"#5e706b",kind:"house"},
+    {x:1900,y:2200,w:250,h:230,color:"#77705c",kind:"warehouse"},
+    {x:2340,y:2200,w:250,h:220,color:"#68716c",kind:"shop"}
+  ];
+  trees=[];cars=[];debris=[];
+  // Parked and abandoned cars add scale and atmosphere to the streets.
+  for(let i=0;i<34;i++){
+    const vertical=Math.random()<.5;
+    const lane=[900,1800,2700][Math.floor(random(0,3))];
+    const x=vertical?lane+random(-35,35):random(60,WORLD.w-60);
+    const y=vertical?random(60,WORLD.h-60):[650,1300,1950][Math.floor(random(0,3))]+random(-38,38);
+    if(!buildings.some(b=>circleRect(x,y,38,b)))cars.push({x,y,vertical,color:["#6c7774","#77705f","#465d68","#8b5c4e"][i%4],wreck:i%5===0});
+  }
+  for(let i=0;i<220;i++){
+    const x=random(20,WORLD.w-20),y=random(20,WORLD.h-20);
+    const onRoad=[900,1800,2700].some(rx=>Math.abs(x-rx)<78)||
+                 [650,1300,1950].some(ry=>Math.abs(y-ry)<78);
+    if(!onRoad&&!buildings.some(b=>circleRect(x,y,12,b)))
+      debris.push({x,y,kind:i%2});
+  }
+  for(let i=0;i<460;i++){
+    const x=random(35,WORLD.w-35),y=random(35,WORLD.h-35);
+    const nearRoad=(Math.abs(x-900)<95||Math.abs(x-1800)<95||Math.abs(x-2700)<95||
+                    Math.abs(y-650)<95||Math.abs(y-1300)<95||Math.abs(y-1950)<95);
+    if(!nearRoad&&!buildings.some(b=>circleRect(x,y,25,b)))
+      trees.push({x,y,r:random(13,25),shade:Math.floor(random(0,3))});
+  }
+}
+function makePlayer(){
+  const health=playerRole==="Medic"?130:100;
+  return{x:1800,y:1300,r:17,health,maxHealth:health,
+    speed:playerRole==="Scout"?245:190,lastHit:0,facing:0,step:0};
+}
+function spawnSupply(){
+  for(let i=0;i<180;i++){
+    const x=random(55,WORLD.w-55),y=random(55,WORLD.h-55);
+    if(!blocked(x,y,15)&&Math.hypot(x-player.x,y-player.y)>130){
+      supplies.push({x,y,r:13,bob:random(0,6)});return;
+    }
+  }
+}
+function spawnZombie(){
+  for(let i=0;i<140;i++){
+    const angle=random(0,Math.PI*2),distance=random(480,760);
+    const x=player.x+Math.cos(angle)*distance,y=player.y+Math.sin(angle)*distance;
+    if(x>30&&y>30&&x<WORLD.w-30&&y<WORLD.h-30&&!blocked(x,y,18)){
+      const roll=Math.random();
+      const type=roll<.62?"walker":roll<.88?"runner":"brute";
+      const stats=type==="runner"?{r:13,speed:105,health:1}:
+                  type==="brute"?{r:23,speed:39,health:3}:{r:17,speed:62,health:2};
+      zombies.push({x,y,...stats,type,phase:random(0,6),facing:0,step:0});
+      return;
+    }
+  }
+}
+function startGame(){
+  initAudio();
+  playerName=document.getElementById("nameInput").value.trim()||"Survivor";
+  playerRole=document.getElementById("roleInput").value;
+  document.getElementById("playerLabel").textContent=playerName;
+  document.getElementById("roleLabel").textContent=playerRole;
+  document.getElementById("overlay").style.display="none";
+  document.getElementById("hud").style.display="block";
+  document.getElementById("mapLabel").style.display="block";
+  createMap();player=makePlayer();zombies=[];supplies=[];particles=[];bolts=[];
+  collected=0;coins=0;gunLevel=1;elapsed=0;spawnTimer=0;lastShot=0;
+  document.getElementById("upgradePanel").style.display="block";
+  updateUpgradeUI();
+  for(let i=0;i<30;i++)spawnZombie();
+  for(let i=0;i<24;i++)spawnSupply();
+  running=true;lastTime=performance.now();requestAnimationFrame(loop);
+}
+document.getElementById("startButton").onclick=startGame;
+document.getElementById("retryButton").onclick=startGame;
+document.getElementById("soundButton").onclick=()=>setSoundEnabled(!soundEnabled);
+document.getElementById("upgradeButton").onclick=()=>{
+  const cost=gunLevel*10;
+  if(gunLevel>=6){document.getElementById("upgradeMessage").textContent="Blaster fully upgraded!";return}
+  if(coins<cost){document.getElementById("upgradeMessage").textContent="You need "+(cost-coins)+" more coins.";return}
+  coins-=cost;gunLevel++;
+  updateUpgradeUI();
+};
+function updateUpgradeUI(){
+  const cost=gunLevel*10;
+  document.getElementById("coinText").textContent=coins;
+  document.getElementById("upgradeInfo").textContent=
+    "Level "+gunLevel+" · Bolt power "+gunLevel;
+  document.getElementById("upgradeButton").textContent=
+    gunLevel>=6?"Fully upgraded":"Upgrade · "+cost+" coins";
+  document.getElementById("upgradeButton").disabled=gunLevel>=6;
+  document.getElementById("upgradeMessage").textContent=
+    gunLevel>=6?"Blaster fully upgraded!":"Defeat zombies to earn coins.";
+}
+canvas.addEventListener("mousemove",e=>{mouseX=e.clientX;mouseY=e.clientY});
+canvas.addEventListener("click",()=>fireBolt());
+window.addEventListener("keydown",e=>{
+  const k=e.key.toLowerCase();
+  if(["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"].includes(k))e.preventDefault();
+  keys[k]=true;
+});
+window.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+
+function fireBolt(){
+  if(!running||!player)return;
+  const now=performance.now();
+  const cooldown=Math.max(150,420-gunLevel*40);
+  if(now-lastShot<cooldown)return;
+  lastShot=now;
+  const tx=mouseX+cameraX,ty=mouseY+cameraY;
+  const angle=Math.atan2(ty-player.y,tx-player.x);
+  bolts.push({x:player.x+Math.cos(angle)*22,y:player.y+Math.sin(angle)*22,
+    prevX:player.x,prevY:player.y,vx:Math.cos(angle)*700,vy:Math.sin(angle)*700,
+    life:1.2,power:gunLevel});
+  playShotSound();
+}
+function die(){
+  if(!running)return;
+  running=false;
+  document.getElementById("hud").style.display="none";
+  document.getElementById("upgradePanel").style.display="none";
+  document.getElementById("mapLabel").style.display="none";
+  document.getElementById("overlay").style.display="flex";
+  document.getElementById("startPanel").style.display="none";
+  document.getElementById("deadPanel").style.display="block";
+  document.getElementById("finalScore").textContent=
+    "Supplies collected: "+collected+" | Survival time: "+Math.floor(elapsed)+" seconds";
+}
+function update(dt){
+  elapsed+=dt;
+  let dx=0,dy=0;
+  if(keys.w)dy--;if(keys.s)dy++;if(keys.a)dx--;if(keys.d)dx++;
+  const len=Math.hypot(dx,dy);
+  if(len){dx=dx/len*player.speed*dt;dy=dy/len*player.speed*dt;player.facing=Math.atan2(dy,dx);player.step+=dt*11}
+  if(!blocked(player.x+dx,player.y,player.r))player.x+=dx;
+  if(!blocked(player.x,player.y+dy,player.r))player.y+=dy;
+
+  zombies.forEach(z=>{
+    const vx=player.x-z.x,vy=player.y-z.y,d=Math.hypot(vx,vy)||1;
+    z.facing=Math.atan2(vy,vx);z.step+=dt*8;
+    const speed=z.speed+Math.min(24,elapsed*.12);
+    const mx=vx/d*speed*dt,my=vy/d*speed*dt;
+    if(!blocked(z.x+mx,z.y,z.r))z.x+=mx;
+    if(!blocked(z.x,z.y+my,z.r))z.y+=my;
+    // Any zombie touch ends the run immediately.
+    if(d<player.r+z.r+5){
+      player.health=0;
+      die();
+      return;
+    }
+  });
+  if(!running)return;
+  for(let i=bolts.length-1;i>=0;i--){
+    const b=bolts[i];
+    b.prevX=b.x;b.prevY=b.y;
+    b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
+    let hit=false;
+    for(let j=zombies.length-1;j>=0;j--){
+      const z=zombies[j];
+      if(Math.hypot(b.x-z.x,b.y-z.y)<z.r+7){
+        z.health-=b.power;hit=true;playHitSound();
+        if(z.health<=0){
+          playDefeatSound();
+          coins+=z.type==="brute"?12:z.type==="runner"?7:5;
+          zombies.splice(j,1);
+          document.getElementById("coinText").textContent=coins;
+          document.getElementById("upgradeMessage").textContent="Nice! Coins earned. Upgrade your blaster!";
+        }
+        break;
+      }
+    }
+    if(hit||b.life<=0||b.x<0||b.y<0||b.x>WORLD.w||b.y>WORLD.h)bolts.splice(i,1);
+  }
+  for(let i=supplies.length-1;i>=0;i--){
+    const s=supplies[i];
+    if(Math.hypot(player.x-s.x,player.y-s.y)<player.r+s.r+4){
+      collected++;supplies.splice(i,1);spawnSupply();
+    }
+  }
+  spawnTimer+=dt;
+  if(spawnTimer>4&&zombies.length<65){spawnZombie();spawnTimer=0}
+  document.getElementById("healthText").textContent=Math.ceil(player.health);
+  document.getElementById("healthFill").style.width=(player.health/player.maxHealth*100)+"%";
+  document.getElementById("supplyText").textContent=collected;
+  document.getElementById("coinText").textContent=coins;
+}
+
+function drawZombie(z){
+  const bob=Math.sin(z.step)*2;
+  const skin=z.type==="brute"?"#6f8760":z.type==="runner"?"#a4b879":"#829b6b";
+  const coat=z.type==="brute"?"#493f42":z.type==="runner"?"#594c3e":"#394d49";
+  ctx.save();ctx.translate(z.x,z.y+bob);ctx.rotate(z.facing);
+  // Shadow and two reaching arms
+  ctx.fillStyle="#15251c99";ctx.beginPath();ctx.ellipse(0,z.r+5,z.r+7,6,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle=skin;ctx.lineWidth=z.type==="brute"?9:6;ctx.lineCap="round";
+  ctx.beginPath();ctx.moveTo(-3,-5);ctx.lineTo(-z.r-9,-13);ctx.moveTo(5,-4);ctx.lineTo(z.r+11,-10);ctx.stroke();
+  // Body and head
+  ctx.fillStyle=coat;ctx.beginPath();ctx.ellipse(0,5,z.r*.72,z.r*.9,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=skin;ctx.beginPath();ctx.ellipse(5,-z.r*.55,z.r*.72,z.r*.7,-.15,0,Math.PI*2);ctx.fill();
+  // Hair, ragged clothing, and face details (cartoon, non-graphic)
+  ctx.fillStyle="#29352b";ctx.beginPath();ctx.arc(3,-z.r*.95,z.r*.55,Math.PI,Math.PI*2);ctx.fill();
+  ctx.fillStyle="#d9d66e";
+  ctx.beginPath();ctx.ellipse(9,-z.r*.62,3.3,2.5,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle="#263126";ctx.beginPath();ctx.arc(10,-z.r*.62,1.3,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle="#39422f";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(7,1);ctx.lineTo(14,3);ctx.stroke();
+  ctx.fillStyle="#b8c5a0";ctx.fillRect(-7,8,5,3);ctx.fillRect(3,11,5,3);
+  if(z.type==="runner"){
+    ctx.fillStyle="#d6c68d";ctx.fillRect(-5,-z.r-5,8,3);
+  }else if(z.type==="brute"){
+    ctx.fillStyle="#8f9e79";ctx.fillRect(-z.r-3,-2,7,12);ctx.fillRect(z.r-3,0,7,12);
+  }
+  ctx.restore();
+  const barW=z.r*2.2;
+  ctx.fillStyle="#342d2d";ctx.fillRect(z.x-barW/2,z.y-z.r-13,barW,4);
+  ctx.fillStyle="#9be36a";ctx.fillRect(z.x-barW/2,z.y-z.r-13,barW*Math.max(0,z.health/(z.type==="brute"?3:z.type==="walker"?2:1)),4);
+}
+function draw(){
+  const camX=Math.max(0,Math.min(WORLD.w-canvas.width,player.x-canvas.width/2));
+  const camY=Math.max(0,Math.min(WORLD.h-canvas.height,player.y-canvas.height/2));
+  cameraX=camX;cameraY=camY;
+  ctx.fillStyle="#385e40";ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.save();ctx.translate(-camX,-camY);
+  // Grass verge and mottled ground texture.
+  ctx.fillStyle="#3c6044";ctx.fillRect(0,0,WORLD.w,WORLD.h);
+  for(let i=0;i<1500;i++){
+    const x=(i*137)%WORLD.w,y=(i*211)%WORLD.h;
+    ctx.fillStyle=i%3===0?"#456b49":i%3===1?"#36583e":"#496d4b";
+    ctx.fillRect(x,y,random(2,6),random(2,5));
+  }
+  // Streets have asphalt edges, concrete gutters, faded lane paint and cracks.
+  [900,1800,2700].forEach(x=>{
+    ctx.fillStyle="#343b3a";ctx.fillRect(x-70,0,140,WORLD.h);
+    ctx.fillStyle="#555c58";ctx.fillRect(x-61,0,122,WORLD.h);
+    ctx.fillStyle="#b2aa85";ctx.fillRect(x-65,0,3,WORLD.h);ctx.fillRect(x+62,0,3,WORLD.h);
+    ctx.fillStyle="#b9b18b";for(let y=0;y<WORLD.h;y+=82)ctx.fillRect(x-2,y,4,34);
+  });
+  [650,1300,1950].forEach(y=>{
+    ctx.fillStyle="#343b3a";ctx.fillRect(0,y-72,WORLD.w,144);
+    ctx.fillStyle="#555c58";ctx.fillRect(0,y-63,WORLD.w,126);
+    ctx.fillStyle="#b2aa85";ctx.fillRect(0,y-67,WORLD.w,3);ctx.fillRect(0,y+64,WORLD.w,3);
+    ctx.fillStyle="#b9b18b";for(let x=0;x<WORLD.w;x+=82)ctx.fillRect(x,y-2,34,4);
+  });
+  // Small road cracks and patched asphalt.
+  for(let i=0;i<115;i++){
+    const vertical=i%2===0,x=vertical?[900,1800,2700][i%3]+random(-48,48):random(0,WORLD.w);
+    const y=vertical?random(0,WORLD.h):[650,1300,1950][i%3]+random(-48,48);
+    ctx.strokeStyle=i%3?"#626762":"#858477";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+random(-13,13),y+random(7,20));ctx.lineTo(x+random(-20,20),y+random(20,32));ctx.stroke();
+  }
+  // Crosswalk stripes at the major intersections.
+  [900,1800,2700].forEach(x=>[650,1300,1950].forEach(y=>{
+    ctx.fillStyle="#c4c0a4";for(let k=-3;k<=3;k++)ctx.fillRect(x+k*13-3,y-82,6,25);
+  }));
+  // Litter, broken boards and small rubble beside the roads.
+  debris.forEach(d=>{ctx.save();ctx.translate(d.x,d.y);ctx.rotate(d.x*.03);ctx.fillStyle=d.kind===0?"#8c8060":"#a19a82";ctx.fillRect(-4,-2,8,4);if(d.kind===2)ctx.fillRect(-2,-5,4,10);ctx.restore()});
+  // Buildings with roof trim, windows, doors, and subtle rooftop units.
+  buildings.forEach((b,index)=>{
+    // Deep cast shadow and layered roof surfaces.
+    ctx.fillStyle="#1c2923";ctx.fillRect(b.x+13,b.y+17,b.w,b.h);
+    ctx.fillStyle="#303c37";ctx.fillRect(b.x-5,b.y-5,b.w+10,b.h+10);
+    ctx.fillStyle=b.color;ctx.fillRect(b.x,b.y,b.w,b.h);
+    ctx.fillStyle="#879087";ctx.fillRect(b.x+8,b.y+8,b.w-16,7);
+    ctx.fillStyle="#4b5550";ctx.fillRect(b.x+8,b.y+22,b.w-16,b.h-34);
+    ctx.fillStyle=b.color;ctx.fillRect(b.x+14,b.y+28,b.w-28,b.h-48);
+    // Rooftop vents and weathered skylights.
+    ctx.fillStyle="#303a36";ctx.fillRect(b.x+28,b.y+34,34,24);ctx.fillRect(b.x+b.w-70,b.y+36,42,27);
+    ctx.fillStyle="#89948a";ctx.fillRect(b.x+32,b.y+37,26,4);ctx.fillRect(b.x+b.w-66,b.y+39,34,4);
+    // Windows with dark glass, frames and occasional broken panes.
+    for(let x=b.x+25;x<b.x+b.w-20;x+=62){
+      ctx.fillStyle="#263b3c";ctx.fillRect(x,b.y+78,31,35);
+      ctx.strokeStyle="#a1a18a";ctx.lineWidth=3;ctx.strokeRect(x,b.y+78,31,35);
+      ctx.strokeStyle="#65746c";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x+15,b.y+80);ctx.lineTo(x+15,b.y+111);ctx.moveTo(x+2,b.y+95);ctx.lineTo(x+29,b.y+95);ctx.stroke();
+      if((Math.floor(x)+index)%4===0){ctx.strokeStyle="#c4c0a4";ctx.beginPath();ctx.moveTo(x+4,b.y+81);ctx.lineTo(x+24,b.y+107);ctx.stroke()}
+    }
+    // Entrance, steps and faded sign.
+    ctx.fillStyle="#252f2c";ctx.fillRect(b.x+b.w/2-23,b.y+b.h-54,46,54);
+    ctx.fillStyle="#9b9a7c";ctx.fillRect(b.x+b.w/2-27,b.y+b.h-58,54,5);
+    ctx.fillStyle="#c0b68a";ctx.fillRect(b.x+18,b.y+15,Math.min(75,b.w-36),9);
+    ctx.fillStyle="#5c6258";ctx.fillRect(b.x+22,b.y+17,Math.min(67,b.w-44),5);
+  });
+  // Abandoned cars, drawn from above with glass, tires and occasional damage.
+  cars.forEach(car=>{
+    ctx.save();ctx.translate(car.x,car.y);if(car.vertical)ctx.rotate(Math.PI/2);
+    ctx.fillStyle="#202725";ctx.fillRect(-17,-33,38,72);
+    ctx.fillStyle=car.color;ctx.fillRect(-14,-35,28,70);
+    ctx.fillStyle="#273b40";ctx.fillRect(-11,-21,22,18);ctx.fillRect(-11,5,22,17);
+    ctx.fillStyle="#a8b3a4";ctx.fillRect(-10,-2,20,4);
+    ctx.fillStyle="#171d1c";ctx.fillRect(-19,-24,5,14);ctx.fillRect(14,-24,5,14);ctx.fillRect(-19,12,5,14);ctx.fillRect(14,12,5,14);
+    ctx.fillStyle="#d5c98c";ctx.fillRect(-12,-34,7,3);ctx.fillRect(5,-34,7,3);
+    if(car.wreck){ctx.strokeStyle="#292d2b";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-8,-12);ctx.lineTo(8,1);ctx.lineTo(-5,18);ctx.stroke()}
+    ctx.restore();
+  });
+  // Scattered trees and bushes.
+  trees.forEach(t=>{
+    ctx.fillStyle="#61462c";ctx.fillRect(t.x-5,t.y,10,22);
+    ctx.fillStyle=t.shade===0?"#1b492c":t.shade===1?"#245b32":"#2c6739";
+    ctx.beginPath();ctx.arc(t.x,t.y,t.r+6,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#337d40";ctx.beginPath();ctx.arc(t.x-5,t.y-5,t.r,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#4b8a4b";ctx.beginPath();ctx.arc(t.x+6,t.y-8,t.r*.55,0,Math.PI*2);ctx.fill();
+  });
+  // Supply crates
+  supplies.forEach(s=>{
+    const bob=Math.sin(elapsed*3+s.bob)*3;
+    ctx.fillStyle="#e8c44c";ctx.fillRect(s.x-12,s.y-12+bob,24,24);
+    ctx.strokeStyle="#fff0a0";ctx.lineWidth=3;ctx.strokeRect(s.x-12,s.y-12+bob,24,24);
+    ctx.fillStyle="#694b19";ctx.fillRect(s.x-3,s.y-9+bob,6,18);ctx.fillRect(s.x-9,s.y-3+bob,18,6);
+  });
+  zombies.forEach(drawZombie);
+  // Highly visible glowing energy shots with motion trails.
+  bolts.forEach(b=>{
+    ctx.save();
+    ctx.lineCap="round";
+    ctx.shadowColor="#53eaff";ctx.shadowBlur=22;
+    ctx.strokeStyle="#39cfff";ctx.lineWidth=9;
+    ctx.beginPath();ctx.moveTo(b.prevX,b.prevY);ctx.lineTo(b.x,b.y);ctx.stroke();
+    ctx.strokeStyle="#d9ffff";ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(b.prevX,b.prevY);ctx.lineTo(b.x,b.y);ctx.stroke();
+    ctx.fillStyle="#ffffff";ctx.beginPath();ctx.arc(b.x,b.y,5,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  });
+  // More detailed top-down survivor with animated legs, backpack, arms and head.
+  ctx.save();ctx.translate(player.x,player.y);
+  const walking=(keys.w||keys.a||keys.s||keys.d);
+  const stride=walking?Math.sin(player.step)*5:0;
+  ctx.fillStyle="#14201999";ctx.beginPath();ctx.ellipse(0,9,22,13,0,0,Math.PI*2);ctx.fill();
+  ctx.rotate(player.facing+Math.PI/2);
+  // Boots and animated legs.
+  ctx.fillStyle="#252b2b";ctx.beginPath();ctx.roundRect(-10,5+stride,8,16,3);ctx.roundRect(3,5-stride,8,16,3);ctx.fill();
+  // Trousers and torso.
+  ctx.fillStyle="#3b4b45";ctx.beginPath();ctx.roundRect(-11,-4+stride,9,18,4);ctx.roundRect(2,-4-stride,9,18,4);ctx.fill();
+  ctx.fillStyle=playerRole==="Scout"?"#b18a37":playerRole==="Medic"?"#398f89":"#3c6d9a";
+  ctx.beginPath();ctx.roundRect(-12,-14,24,25,7);ctx.fill();
+  ctx.fillStyle="#d0c8a9";ctx.fillRect(-2,-12,4,19);
+  // Backpack and shoulder straps.
+  ctx.fillStyle="#394638";ctx.beginPath();ctx.roundRect(-17,-10,7,18,3);ctx.fill();
+  ctx.strokeStyle="#b4a77c";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-9,-11);ctx.lineTo(-7,7);ctx.moveTo(9,-11);ctx.lineTo(7,7);ctx.stroke();
+  // Arms swing gently while moving.
+  ctx.strokeStyle="#d1a47d";ctx.lineWidth=6;ctx.lineCap="round";
+  ctx.beginPath();ctx.moveTo(-11,-9);ctx.lineTo(-16,-1+stride*.5);ctx.moveTo(11,-9);ctx.lineTo(16,-1-stride*.5);ctx.stroke();
+  // Head, hair, face and small cap/hood detail.
+  ctx.fillStyle="#c9916e";ctx.beginPath();ctx.arc(0,-19,9,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle="#34302b";ctx.beginPath();ctx.arc(0,-22,9,Math.PI,Math.PI*2);ctx.fill();
+  ctx.fillStyle="#242b29";ctx.fillRect(-6,-20,12,3);
+  ctx.fillStyle="#f0d6b4";ctx.beginPath();ctx.arc(-3,-17,1.2,0,Math.PI*2);ctx.arc(3,-17,1.2,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+  // Name tag remains clearly above the character in world space.
+  ctx.save();ctx.font="bold 15px Arial";ctx.textAlign="center";
+  const tagWidth=Math.max(68,ctx.measureText(playerName).width+18);
+  ctx.fillStyle="#101a18dd";ctx.beginPath();ctx.roundRect(player.x-tagWidth/2,player.y-53,tagWidth,22,7);ctx.fill();
+  ctx.strokeStyle="#b7d99a";ctx.lineWidth=1.5;ctx.stroke();
+  ctx.fillStyle="#ffffff";ctx.lineWidth=3;ctx.strokeStyle="#14221b";
+  ctx.strokeText(playerName,player.x,player.y-38);ctx.fillText(playerName,player.x,player.y-38);ctx.restore();
+  ctx.restore();
+  // Minimap now shows the full expanded city.
+  const mw=160,mh=116,mx=canvas.width-mw-15,my=15;
+  ctx.fillStyle="#111c19dd";ctx.fillRect(mx,my,mw,mh);
+  ctx.strokeStyle="#a9ce91";ctx.lineWidth=2;ctx.strokeRect(mx,my,mw,mh);
+  ctx.fillStyle="#f4df56";ctx.beginPath();
+  ctx.arc(mx+player.x/WORLD.w*mw,my+player.y/WORLD.h*mh,4,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle="#e75b52";
+  zombies.forEach(z=>ctx.fillRect(mx+z.x/WORLD.w*mw-2,my+z.y/WORLD.h*mh-2,4,4));
+}
+function loop(now){
+  if(!running)return;
+  const dt=Math.min((now-lastTime)/1000,.04);lastTime=now;
+  update(dt);if(!running)return;draw();requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
